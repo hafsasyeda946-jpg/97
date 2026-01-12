@@ -1,9 +1,10 @@
 /**
- * Senna Racer - Two Lane Version
+ * Senna Racer - Two Lane Version (Full Updated Code)
  * - Only TWO lanes
  * - Cars sized to ~80% of lane height
  * - Player moves forward, world scrolls backward
  * - Obstacles come from the right toward the player
+ * - All original features preserved (biomes, scenery, tilt, labels, etc.)
  */
 
 let gameState = 'TITLE';
@@ -120,6 +121,50 @@ function drawRoad() {
   }
 }
 
+/* ================= GAME SCREENS ================= */
+function drawTitleScreen() {
+  fill(0, 0, 0, 150);
+  rect(width / 2, height / 2, width, height);
+  fill(255, 204, 0);
+  textSize(50);
+  text('SENNA RACER', width / 2, height / 2 - 50);
+  textSize(20);
+  fill(255);
+  text('Safety First! Avoid the Cars.', width / 2, height / 2);
+  fill(0, 255, 150);
+  text('Tap to Start', width / 2, height / 2 + 60);
+}
+
+function drawInstructionScreen() {
+  fill(0, 0, 0, 180);
+  rect(width / 2, height / 2, width, height);
+  fill(255);
+  textSize(24);
+  text('DRIVER INSTRUCTIONS', width / 2, height / 3);
+  textSize(18);
+  text(
+    'Tilt your phone to steer.\nOn Laptop: Use Arrow Keys.\nDon’t hit the other cars!',
+    width / 2,
+    height / 2
+  );
+  fill(0, 255, 150);
+  text('Tap to Ride', width / 2, height / 2 + 120);
+}
+
+function drawGameOverScreen() {
+  fill(0, 0, 0, 200);
+  rect(width / 2, height / 2, width, height);
+  fill(255, 50, 50);
+  textSize(48);
+  text('CRASH!', width / 2, height / 2 - 60);
+  fill(255);
+  textSize(24);
+  text(`Final Distance: ${score}m`, width / 2, height / 2);
+  text(`Session Record: ${highScore}m`, width / 2, height / 2 + 40);
+  fill(0, 255, 150);
+  text('Tap to Restart', width / 2, height / 2 + 100);
+}
+
 /* ================= GAMEPLAY ================= */
 function playGame() {
   handleInput();
@@ -161,6 +206,84 @@ function playGame() {
   }
 
   drawHUD();
+}
+
+/* ================= HUD & INPUT ================= */
+function drawHUD() {
+  fill(255, 255, 0);
+  noStroke();
+  textSize(22);
+  textAlign(LEFT);
+  text(`Distance: ${score}m`, 30, 50);
+  textAlign(RIGHT);
+  text(`Best: ${highScore}m`, width - 30, 50);
+  textAlign(CENTER);
+}
+
+function handleInput() {
+  if (keyIsDown(UP_ARROW) || keyIsDown(87)) {      // W or UP
+    player.changeLane(true);
+  }
+  if (keyIsDown(DOWN_ARROW) || keyIsDown(83)) {    // S or DOWN
+    player.changeLane(false);
+  }
+
+  // Optional tilt support (you can keep or remove)
+  if (permissionGranted) {
+    tiltX = constrain(tiltX, -25, 25);
+    tiltY = constrain(tiltY, -25, 25);
+    // You could use tiltY for very slight forward/back, but not needed here
+  }
+}
+
+/* ================= MOUSE / TOUCH ================= */
+function mousePressed() {
+  if (gameState === 'TITLE') {
+    gameState = 'INSTRUCTIONS';
+    if (!bgSong.isPlaying()) {
+      bgSong.loop();
+      bgSong.setVolume(0.4);
+    }
+  } else if (gameState === 'INSTRUCTIONS' || gameState === 'GAMEOVER') {
+    resetGame();
+    gameState = 'PLAYING';
+  }
+}
+
+/* ================= GAME FLOW ================= */
+function resetGame() {
+  score = 0;
+  gameSpeed = 5;
+  obstacles = [];
+  sceneries = [];
+  currentBiome = random(biomes);
+  updateLanes();
+  player = new Player();
+}
+
+function endGame() {
+  gameState = 'GAMEOVER';
+  if (score > highScore) highScore = score;
+}
+
+/* ================= SENSOR HANDLING ================= */
+async function requestSensorPermission() {
+  try {
+    const orientationPermission = await DeviceOrientationEvent.requestPermission();
+    const motionPermission = await DeviceMotionEvent.requestPermission();
+    if (orientationPermission === 'granted' && motionPermission === 'granted') {
+      permissionGranted = true;
+      window.addEventListener('deviceorientation', handleOrientation);
+      permissionButton.remove();
+    }
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+function handleOrientation(event) {
+  tiltX = event.gamma || 0;
+  tiltY = event.beta || 0;
 }
 
 /* ================= CLASSES ================= */
@@ -207,7 +330,46 @@ class Player {
     bezierVertex(45, 10, 30, 12, 15, 12);
     bezierVertex(0, 12, -20, 10, -40, 8);
     endShape(CLOSE);
-    // ... (rest of your car drawing code remains unchanged)
+    fill(0);
+    quad(-20, -5, 10, -5, 15, 0, -15, 0);
+    fill(50);
+    triangle(-10, 5, 0, 10, -5, 10);
+    fill(0);
+    stroke(100);
+    strokeWeight(1);
+    ellipse(-25, 10, 15, 15);
+    ellipse(25, 10, 15, 15);
+    noStroke();
+    fill(0, 100, 255);
+    ellipse(-25, 10, 8, 8);
+    ellipse(25, 10, 8, 8);
+    fill(50);
+    rect(35, -5, 20, 3);
+    quad(35, -5, 40, -15, 50, -15, 45, -5);
+    stroke(50);
+    strokeWeight(2);
+    line(38, -2, 38, 5);
+    line(45, -2, 45, 5);
+    noStroke();
+    fill(0);
+    triangle(30, 12, 40, 18, 25, 18);
+    triangle(-40, 0, -35, -5, -40, -5);
+    triangle(-40, 5, -35, 10, -40, 10);
+    fill(100);
+    ellipse(30, 8, 5, 3);
+    fill(255, 255, 0);
+    ellipse(-38, -2, 6, 3);
+    ellipse(-38, 2, 6, 3);
+    fill(255, 0, 0);
+    ellipse(38, 3, 4, 2);
+    ellipse(38, 7, 4, 2);
+    fill(150);
+    ellipse(18, -4, 5, 3);
+    fill(0, 0, 0, 150);
+    quad(-15, -6, 5, -6, 10, -1, -10, -1);
+    fill(255, 255, 255, 100);
+    textSize(4);
+    text('midevs', -5, 5);
     pop();
   }
 }
@@ -234,12 +396,35 @@ class Obstacle {
     scale(1.9);
     noStroke();
     fill(this.color);
-    // ... (your original car shape code here)
-    // Label
+    beginShape();
+    vertex(-40, 8);
+    bezierVertex(-40, 8, -35, -2, -25, -5);
+    bezierVertex(-15, -8, 0, -8, 15, -5);
+    bezierVertex(25, -3, 35, 0, 40, 5);
+    bezierVertex(45, 10, 30, 12, 15, 12);
+    bezierVertex(0, 12, -20, 10, -40, 8);
+    endShape(CLOSE);
+    fill(20);
+    quad(-20, -5, 10, -5, 15, 0, -15, 0);
+    fill(0);
+    ellipse(-25, 10, 15, 15);
+    ellipse(25, 10, 15, 15);
+    fill(red(this.caliperColor), green(this.caliperColor), blue(this.caliperColor));
+    ellipse(-25, 10, 8, 8);
+    ellipse(25, 10, 8, 8);
+    fill(40);
+    rect(35, -5, 18, 3);
+    fill(0);
+    triangle(-40, 0, -35, -5, -40, -5);
+    // Label printed ON the car body (side panel area)
     fill(255);
+    noStroke();
     textSize(6);
     textAlign(CENTER, CENTER);
-    text(this.label, 5, 2);
+    text(this.label, 5, 2); // Main placement - middle-right side
+    textSize(4);
+    fill(220);
+    text(this.label, -12, -2); // Smaller faint version on left side for style
     pop();
   }
 
@@ -254,49 +439,92 @@ class Obstacle {
   }
 }
 
-/* ================= INPUT ================= */
-function handleInput() {
-  if (keyIsDown(UP_ARROW) || keyIsDown(87)) {      // W or UP
-    player.changeLane(true);
-  }
-  if (keyIsDown(DOWN_ARROW) || keyIsDown(83)) {    // S or DOWN
-    player.changeLane(false);
-  }
-
-  // Optional tilt support (you can keep or remove)
-  if (permissionGranted) {
-    tiltX = constrain(tiltX, -25, 25);
-    tiltY = constrain(tiltY, -25, 25);
-    // You could use tiltY for very slight forward/back, but not needed here
-  }
-}
-
-/* ================= MOUSE / TOUCH ================= */
-function mousePressed() {
-  if (gameState === 'TITLE') {
-    gameState = 'INSTRUCTIONS';
-    if (!bgSong.isPlaying()) {
-      bgSong.loop();
-      bgSong.setVolume(0.4);
+class Scenery {
+  constructor() {
+    let typePool = ['house', 'house', 'house', 'lily', 'lily', 'hydrangea', 'hydrangea', 'bird', 'bird', 'bird'];
+    this.type = random(typePool);
+    this.x = -random(50, 150);
+    this.y = random(shoulderHeight + 50, height - shoulderHeight - 50);
+    this.side = 'bottom';
+    if (this.type === 'bird') {
+      this.y = random(50, 200);
+      this.offx = random(-120, 120);
+    } else if (this.type === 'house' || this.type === 'hydrangea') {
+      this.y = random(height - 150, height - 50);
+      this.offx = random() < 0.5 ? random(-width/3, -width/6) : random(width/6, width/3);
+    } else if (this.type === 'lily') {
+      this.y = random(height - 100, height - 50);
+      this.offx = random() < 0.5 ? random(-width/3, -width/6) : random(width/6, width/3);
     }
-  } else if (gameState === 'INSTRUCTIONS' || gameState === 'GAMEOVER') {
-    resetGame();
-    gameState = 'PLAYING';
+    this.scale = random(0.8, 1.2);
+    this.height = (this.type === 'lily') ? random(180, 280) : random(100, 200);
+  }
+
+  update() {
+    this.x += gameSpeed * 0.8; // Parallax for depth
+  }
+
+  display() {
+    push();
+    translate(this.x + this.offx, this.y);
+    scale(this.scale);
+    switch (this.type) {
+      case 'lily':
+        stroke(0, 200, 0);
+        strokeWeight(5);
+        line(0, 0, 0, -this.height);
+        noStroke();
+        fill(255, 182, 193); // Pink
+        for (let a = 0; a < 6; a++) {
+          push();
+          rotate(a * TWO_PI / 6);
+          ellipse(0, -this.height - 10, 10, 30);
+          pop();
+        }
+        fill(255, 255, 0);
+        ellipse(0, -this.height - 10, 8, 8);
+        break;
+      case 'hydrangea':
+        fill(0, 128, 0);
+        ellipse(0, 0, 50, 30);
+        fill(106, 90, 205); // Purple-blue
+        for (let i = 0; i < 20; i++) {
+          let bx = random(-25, 25);
+          let by = random(-15, 15);
+          ellipse(bx, by, 8, 8);
+        }
+        break;
+      case 'house':
+        fill(150);
+        rect(0, 0, 50, 40);
+        fill(100);
+        triangle(-25, -20, 25, -20, 0, -50);
+        fill(255);
+        rect(-10, 10, 10, 10); // Window
+        rect(10, 10, 10, 10); // Window
+        fill(139, 69, 19);
+        rect(0, 25, 15, 30); // Door
+        break;
+      case 'bird':
+        noStroke();
+        fill(0);
+        triangle(0, 0, -15, -5, -15, 5);
+        stroke(0);
+        strokeWeight(2);
+        line(-10, 0, -20, -10);
+        line(-10, 0, -20, 10);
+        break;
+    }
+    pop();
+  }
+
+  offscreenLeft() {
+    return this.x < -50;
   }
 }
 
-/* ================= RESET ================= */
-function resetGame() {
-  score = 0;
-  gameSpeed = 5;
-  obstacles = [];
-  sceneries = [];
-  currentBiome = random(biomes);
+/* ================= RESPONSIVE ================= */
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
   updateLanes();
-  player = new Player();
 }
-
-/* ================= Keep the rest unchanged ================= */
-// drawTitleScreen, drawInstructionScreen, drawGameOverScreen, drawHUD,
-// Scenery class, sensor permission functions, windowResized, etc.
-// remain exactly as in your original code
