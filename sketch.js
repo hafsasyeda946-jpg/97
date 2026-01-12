@@ -1,7 +1,14 @@
 /**
  * Modified Game: Senna Racer (Final Update)
- * - Attributes/labels now printed directly ON the cars (on the side/body)
- * - Other changes from previous version preserved
+ * - Vertical lanes (left, middle, right) with dashed vertical lines scrolling down.
+ * - Player and obstacles now fit perfectly into one lane width with little allowance (~76% lane width used by car).
+ * - Same car size and scale for player and obstacles.
+ * - Proper lane-based racing: obstacles spawn from top in random lane centers, move down.
+ * - Player near bottom, steers left/right primarily (tiltX/arrows), slight y movement for fine control.
+ * - Scenery on left/right shoulders, parallax scrolling down.
+ * - Shoulder renamed to shoulderWidth, full height sides.
+ * - Collision uses dynamic halfWidth/halfHeight scaled to laneWidth.
+ * - Other changes preserved (labels on cars, biomes, etc.).
  */
 /* ================= GLOBAL VARIABLES ================= */
 let gameState = 'TITLE';
@@ -19,7 +26,9 @@ let tiltX = 0;
 let tiltY = 0;
 let currentBiome = 'forest';
 let biomes = ['forest', 'desert', 'lakeside', 'beach'];
-let shoulderHeight = 100;
+let shoulderWidth = 120;
+let laneCenters = [];
+let laneWidth = 0;
 let labels = ["SUCCESS", "PATIENCE", "HEALTH", "LOVE", "WISDOM", "COURAGE", "GRATITUDE", "HAPPINESS", "KINDNESS", "FORTUNE"];
 
 /* ================= PRELOAD ================= */
@@ -28,11 +37,22 @@ function preload() {
   bgSong = loadSound('song.mp3');
 }
 
+/* ================= LANES ================= */
+function updateLanes() {
+  let roadWidth = width - 2 * shoulderWidth;
+  laneWidth = roadWidth / 3;
+  laneCenters = [];
+  for (let i = 0; i < 3; i++) {
+    laneCenters[i] = shoulderWidth + (i * laneWidth) + (laneWidth / 2);
+  }
+}
+
 /* ================= SETUP ================= */
 function setup() {
   createCanvas(windowWidth, windowHeight);
   rectMode(CENTER);
   textAlign(CENTER, CENTER);
+  updateLanes();
   player = new Player();
   sceneries = [];
   if (
@@ -71,30 +91,43 @@ function draw() {
 
 /* ================= ENVIRONMENT ================= */
 function drawRoad() {
-  background(135, 206, 235);
-  let topColor, bottomColor, roadColor = 60;
+  background(135, 206, 235); // Sky blue
+  let leftColor, rightColor, roadColor = 60;
   switch (currentBiome) {
-    case 'forest': topColor = bottomColor = color(34, 139, 34); break;
-    case 'desert': topColor = bottomColor = color(210, 180, 140); break;
-    case 'lakeside': topColor = color(0, 191, 255); bottomColor = color(34, 139, 34); break;
-    case 'beach': topColor = bottomColor = color(238, 221, 130); break;
+    case 'forest':
+      leftColor = rightColor = color(34, 139, 34); // Green
+      break;
+    case 'desert':
+      leftColor = rightColor = color(210, 180, 140); // Tan sand
+      break;
+    case 'lakeside':
+      leftColor = color(0, 191, 255); // Blue water left
+      rightColor = color(34, 139, 34); // Green right
+      break;
+    case 'beach':
+      leftColor = rightColor = color(238, 221, 130); // Golden sand
+      break;
   }
+  // Left shoulder
   noStroke();
-  fill(topColor);
-  rect(width / 2, shoulderHeight / 2, width, shoulderHeight);
-  fill(bottomColor);
-  rect(width / 2, height - shoulderHeight / 2, width, shoulderHeight);
+  fill(leftColor);
+  rect(shoulderWidth / 2, height / 2, shoulderWidth, height);
+  // Right shoulder
+  fill(rightColor);
+  rect(width - shoulderWidth / 2, height / 2, shoulderWidth, height);
+  // Road
   fill(roadColor);
-  rect(width / 2, height / 2, width, height - shoulderHeight * 2);
-
+  rect(width / 2, height / 2, width - 2 * shoulderWidth, height);
+  // Vertical lane lines (dashes scrolling down)
   stroke(255);
-  strokeWeight(4);
+  strokeWeight(5);
   bgOffset -= gameSpeed;
-  if (bgOffset < -100) bgOffset = 0;
+  if (bgOffset <= -120) bgOffset += 120;
+  let roadW = width - 2 * shoulderWidth;
   for (let l = 1; l < 3; l++) {
-    let ly = shoulderHeight + l * (height - shoulderHeight * 2) / 3;
-    for (let x = bgOffset; x < width; x += 100) {
-      line(x + 20, ly, x + 70, ly);
+    let lx = shoulderWidth + (l * roadW) / 3;
+    for (let y = bgOffset % 120; y < height; y += 120) {
+      line(lx, y + 20, lx, y + 80);
     }
   }
 }
@@ -121,7 +154,7 @@ function drawInstructionScreen() {
   text('DRIVER INSTRUCTIONS', width / 2, height / 3);
   textSize(18);
   text(
-    'Tilt your phone to steer.\nOn Laptop: Use Arrow Keys.\nDon’t hit the other cars!',
+    'Tilt your phone to steer left/right.\nOn Laptop: Use Arrow Keys.\nDon’t hit the other cars!',
     width / 2,
     height / 2
   );
@@ -196,12 +229,12 @@ function handleInput() {
   if (permissionGranted) {
     tiltX = constrain(tiltX, -25, 25);
     tiltY = constrain(tiltY, -25, 25);
-    player.applyForce(tiltX * 0.12, tiltY * 0.12);
+    player.applyForce(tiltX * 0.15, tiltY * 0.06); // Stronger x steer, weaker y
   }
-  if (keyIsDown(LEFT_ARROW)) player.applyForce(-0.6, 0);
-  if (keyIsDown(RIGHT_ARROW)) player.applyForce(0.6, 0);
-  if (keyIsDown(UP_ARROW)) player.applyForce(0, -0.6);
-  if (keyIsDown(DOWN_ARROW)) player.applyForce(0, 0.6);
+  if (keyIsDown(LEFT_ARROW)) player.applyForce(-0.8, 0);
+  if (keyIsDown(RIGHT_ARROW)) player.applyForce(0.8, 0);
+  if (keyIsDown(UP_ARROW)) player.applyForce(0, -0.4);
+  if (keyIsDown(DOWN_ARROW)) player.applyForce(0, 0.4);
 }
 
 function mousePressed() {
@@ -224,6 +257,7 @@ function resetGame() {
   obstacles = [];
   sceneries = [];
   currentBiome = random(biomes);
+  updateLanes();
   player = new Player();
 }
 
@@ -255,11 +289,13 @@ function handleOrientation(event) {
 /* ================= CLASSES ================= */
 class Player {
   constructor() {
-    this.x = 200;
-    this.y = height / 2;
+    this.x = laneCenters[1];
+    this.y = height - 120;
     this.vx = 0;
     this.vy = 0;
     this.friction = 0.94;
+    this.halfWidth = laneWidth * 0.38;
+    this.halfHeight = 28;
   }
   applyForce(fx, fy) {
     this.vx += fx;
@@ -269,14 +305,14 @@ class Player {
     this.x += this.vx;
     this.y += this.vy;
     this.vx *= this.friction;
-    this.vy *= this.friction;
-    this.x = constrain(this.x, 80, width - 80);
-    this.y = constrain(this.y, shoulderHeight + 40, height - shoulderHeight - 40);
+    this.vy *= this.friction * 0.92;
+    this.x = constrain(this.x, shoulderWidth + this.halfWidth * 1.3, width - shoulderWidth - this.halfWidth * 1.3);
+    this.y = constrain(this.y, height * 0.72, height - 70);
   }
   display() {
     push();
     translate(this.x, this.y);
-    scale(2.0);
+    scale(1.95);
     noStroke();
     fill(255, 69, 0);
     beginShape();
@@ -333,20 +369,22 @@ class Player {
 
 class Obstacle {
   constructor() {
-    this.w = 80;
-    this.x = width + this.w;
-    this.y = random(shoulderHeight + 50, height - shoulderHeight - 50);
+    this.laneIndex = floor(random(3));
+    this.x = laneCenters[this.laneIndex];
+    this.y = -100;
     this.color = color(random(80, 255), random(20, 120), random(20, 120));
     this.label = random(labels);
     this.caliperColor = color(random(150,255), random(0,100), random(100,255));
+    this.halfWidth = laneWidth * 0.38;
+    this.halfHeight = 28;
   }
   update() {
-    this.x -= gameSpeed;
+    this.y += gameSpeed;
   }
   display() {
     push();
     translate(this.x, this.y);
-    scale(1.9);
+    scale(1.95);
     noStroke();
     fill(this.color);
     beginShape();
@@ -374,22 +412,19 @@ class Obstacle {
     noStroke();
     textSize(6);
     textAlign(CENTER, CENTER);
-    text(this.label, 5, 2);           // Main placement - middle-right side
+    text(this.label, 5, 2); // Main placement - middle-right side
     textSize(4);
     fill(220);
-    text(this.label, -12, -2);        // Smaller faint version on left side for style
+    text(this.label, -12, -2); // Smaller faint version on left side for style
     pop();
   }
   hits(p) {
-    return (
-      p.x + 45 > this.x - 40 &&
-      p.x - 45 < this.x + 40 &&
-      p.y + 25 > this.y - 15 &&
-      p.y - 25 < this.y + 15
-    );
+    let dx = abs(p.x - this.x);
+    let dy = abs(p.y - this.y);
+    return dx < (p.halfWidth + this.halfWidth) && dy < (p.halfHeight + this.halfHeight);
   }
   offscreen() {
-    return this.x < -100;
+    return this.y > height + 60;
   }
 }
 
@@ -397,39 +432,30 @@ class Scenery {
   constructor() {
     let typePool = ['house', 'house', 'house', 'lily', 'lily', 'hydrangea', 'hydrangea', 'bird', 'bird', 'bird'];
     this.type = random(typePool);
-    this.x = width + random(50, 150);
-    this.side = 'bottom';
+    this.side = random() < 0.5 ? 'left' : 'right';
+    this.x = this.side === 'left' ? random(25, shoulderWidth - 25) : width - random(25, shoulderWidth - 25);
+    this.y = -random(150, 350);
     if (this.type === 'bird') {
-      this.side = 'top';
-      this.y = random(30, shoulderHeight - 10);
-      this.offx = random(-120, 120);
-    } else if (this.type === 'lily' || this.type === 'hydrangea') {
-      this.side = 'bottom';
-      this.y = random(height - shoulderHeight + 10, height - 30);
-      this.offx = random() < 0.5 ? random(-width/3, -width/6) : random(width/6, width/3);
-    } else {
-      this.side = random() < 0.5 ? 'top' : 'bottom';
-      if (this.side === 'top') {
-        this.y = random(30, shoulderHeight - 10);
-      } else {
-        this.y = random(height - shoulderHeight + 10, height - 50);
-      }
-      this.offx = random() < 0.5 ? random(-width/3, -width/6) : random(width/6, width/3);
+      this.y = -random(80, 280);
+      this.x = random(shoulderWidth + 20, width - shoulderWidth - 20); // Birds over road
     }
-    this.scale = this.side === 'top' ? 0.6 : 1.0;
-    this.height = (this.type === 'lily') ? random(180, 280) : random(100, 200);
+    if (this.type === 'lily' || this.type === 'hydrangea') {
+      this.y = -random(200, 400);
+    }
+    this.scale = random(0.7, 1.1);
+    this.height = this.type === 'lily' ? random(200, 320) : random(120, 220);
   }
   update() {
-    this.x -= gameSpeed * 0.8;
+    this.y += gameSpeed * 0.75; // Parallax
   }
   display() {
     push();
-    translate(this.x + this.offx, this.y);
+    translate(this.x, this.y);
     scale(this.scale);
     switch (this.type) {
       case 'lily':
         stroke(0, 150, 0);
-        strokeWeight(6 / this.scale);
+        strokeWeight(7 / this.scale);
         line(0, 0, 0, -this.height);
         noStroke();
         fill(0, 200, 0, 200);
@@ -534,11 +560,18 @@ class Scenery {
     pop();
   }
   offscreen() {
-    return this.x < -width / 2;
+    return this.y > height + 120;
   }
 }
 
 /* ================= RESPONSIVE ================= */
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
+  updateLanes();
+  if (player) {
+    player.x = laneCenters[1];
+    player.y = height - 120;
+    player.halfWidth = laneWidth * 0.38;
+    player.halfHeight = 28;
+  }
 }
